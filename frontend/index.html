@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Student Management</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- Login / Sign Up View -->
+    <div id="login-view">
+      <h2>Login / Sign Up</h2>
+      <form id="login-form">
+        <input id="username" type="text" placeholder="Username" required />
+        <input id="password" type="password" placeholder="Password" required />
+        <button type="submit">Login</button>
+        <button type="button" id="signup-btn">Sign Up</button>
+      </form>
+      <p id="login-message"></p>
+    </div>
+
+    <!-- Main App View -->
+    <div id="app-view" class="hidden">
+      <h2>Student Management</h2>
+      <button id="logout-btn">Logout</button>
+
+      <!-- Student List -->
+      <div id="student-list"></div>
+
+      <!-- Student Form -->
+      <h3 id="form-title">Add New Student</h3>
+      <form id="student-form">
+        <input id="name" type="text" placeholder="Name" required />
+        <input id="dob" type="date" required />
+        <input id="school" type="text" placeholder="School" required />
+        <input type="hidden" id="student-id" />
+        <button type="submit">Save</button>
+        <button type="button" id="cancel-btn" class="hidden">Cancel</button>
+      </form>
+      <p id="form-message"></p>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>

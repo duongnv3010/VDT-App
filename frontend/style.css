@@ -1,0 +1,42 @@
+body {
+    font-family: Arial, sans-serif;
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 1rem;
+}
+
+.hidden {
+    display: none;
+}
+
+input,
+button {
+    margin: 0.5rem 0;
+    padding: 0.5rem;
+    font-size: 1rem;
+}
+
+button {
+    cursor: pointer;
+}
+
+#student-list table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+}
+
+#student-list th,
+#student-list td {
+    border: 1px solid #ccc;
+    padding: 0.5rem;
+    text-align: left;
+}
+
+#student-list th {
+    background: #f0f0f0;
+}
+
+#student-list button {
+    margin-right: 0.5rem;
+}
