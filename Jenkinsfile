@@ -1,13 +1,18 @@
 pipeline {
-    agent any
+    agent {
+        kubernetes {
+            label 'docker'
+            defaultContainer 'docker'
+        }
+    }
 
     environment {
-        IMAGE_TAG = "${env.TAG_NAME}" // Jenkins sẽ tự nhận TAG_NAME khi trigger từ tag event
-        BACKEND_IMAGE = "duong3010/be-image:${env.TAG_NAME}"
-        FRONTEND_IMAGE = "duong3010/fe-image:${env.TAG_NAME}"
-        DOCKERHUB_CREDENTIALS = 'dockerhub-creds' // ID credentials Docker Hub
+        IMAGE_TAG = "${env.TAG_NAME ?: 'manual-build'}"
+        BACKEND_IMAGE = "duong3010/be-image:${IMAGE_TAG}"
+        FRONTEND_IMAGE = "duong3010/fe-image:${IMAGE_TAG}"
+        DOCKERHUB_CREDENTIALS = 'dockerhub-credentials'   // ID credential push Docker Hub
         MANIFEST_REPO = 'https://github.com/duongnv3010/myapp.git'
-        GIT_CREDENTIALS = 'github-creds' // ID credentials GitHub cho repo manifest
+        GIT_CREDENTIALS = 'github-credentials'            // ID credential để push manifest
     }
 
     stages {
@@ -45,18 +50,18 @@ pipeline {
 
         stage('Clone manifest repo & update values.yaml') {
             steps {
+                // Clone manifest repo về thư mục tạm
                 dir('manifest-repo') {
-                    // Clone repo manifest
                     git credentialsId: "${GIT_CREDENTIALS}", url: "${MANIFEST_REPO}", branch: 'main'
                     script {
-                        // Cài yq nếu cần
+                        // Cài yq nếu cần (dùng /tmp/yq cho an toàn)
                         sh '''
                             if ! command -v yq &> /dev/null; then
-                              wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /tmp/yq
-                              chmod +x /tmp/yq
-                              YQ_BIN="/tmp/yq"
+                                wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /tmp/yq
+                                chmod +x /tmp/yq
+                                YQ_BIN="/tmp/yq"
                             else
-                              YQ_BIN="yq"
+                                YQ_BIN="yq"
                             fi
                             $YQ_BIN e '.frontend.image.tag = "${IMAGE_TAG}"' -i values.yaml
                             $YQ_BIN e '.backend.image.tag = "${IMAGE_TAG}"' -i values.yaml
@@ -65,7 +70,7 @@ pipeline {
                             git config user.email "nguyenduong20053010@gmail.com"
                             git add values.yaml
                             git commit -m "Update image tag to ${IMAGE_TAG} [ci skip]" || echo "No changes to commit"
-                            git push origin master
+                            git push origin main
                         '''
                     }
                 }
