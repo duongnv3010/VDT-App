@@ -75,16 +75,19 @@ pipeline {
                     cd config-repo
                     git checkout ${CONFIG_BRANCH}
                     """
+
                     if(env.FRONTEND_CHANGED != '') {
                         sh """
-                        sed -i 's|frontendTag:.*|frontendTag: ${TAG_NAME}|g' config-repo/values.yaml
+                        sed -i 's|frontend:\\(.*\\)tag:.*|frontend:\\1tag: "${TAG_NAME}"|g' config-repo/values.yaml
                         """
                     }
+
                     if(env.BACKEND_CHANGED != '') {
                         sh """
-                        sed -i 's|backendTag:.*|backendTag: ${TAG_NAME}|g' config-repo/values.yaml
+                        sed -i 's|backend:\\(.*\\)tag:.*|backend:\\1tag: "${TAG_NAME}"|g' config-repo/values.yaml
                         """
                     }
+
                     sh """
                     cd config-repo
                     git config user.email "nguyenduong20053010@gmail.com"
