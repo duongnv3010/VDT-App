@@ -35,17 +35,15 @@ pipeline {
     }
 
     stage('Build & Push Images') {
-      steps {
-        script {
-          // Cần cài plugin "Docker Pipeline" để dùng biến docker.{build,push}
-          docker.withRegistry('', DOCKER_CRED) {
-            // frontend
-            docker.build("${DOCKER_NS}/fe-image:${TAG}", "frontend").push()
-            // backend
-            docker.build("${DOCKER_NS}/be-image:${TAG}", "backend").push()
-          }
+        steps {
+            sh """
+            docker login -u $DOCKER_USER_USR -p $DOCKER_USER_PSW
+            docker build -t ${DOCKER_NS}/fe-image:${TAG} frontend
+            docker push ${DOCKER_NS}/fe-image:${TAG}
+            docker build -t ${DOCKER_NS}/be-image:${TAG} backend
+            docker push ${DOCKER_NS}/be-image:${TAG}
+            """
         }
-      }
     }
 
     stage('Update values.yaml') {
