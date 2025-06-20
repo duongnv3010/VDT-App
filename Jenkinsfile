@@ -14,15 +14,30 @@ pipeline {
   stages {
     stage('Ensure yq') {
       steps {
-        sh '''
-          if ! command -v yq &> /dev/null; then
-            echo "Installing yq..."
-            wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-            chmod +x /usr/local/bin/yq
-          else
-            echo "yq already installed"
-          fi
-        '''
+        script {
+          // Thư mục lưu yq
+          def yqDir  = "${env.WORKSPACE}/.tools"
+          def yqPath = "${yqDir}/yq"
+          sh """
+            mkdir -p ${yqDir}
+            if [ ! -f "${yqPath}" ]; then
+              echo "Downloading yq to ${yqPath}"
+              if command -v curl > /dev/null 2>&1; then
+                curl -sL https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o ${yqPath}
+              elif command -v wget > /dev/null 2>&1; then
+                wget -qO ${yqPath} https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+              else
+                echo "Error: curl or wget is required to install yq" >&2
+                exit 1
+              fi
+              chmod +x ${yqPath}
+            else
+              echo "yq already present"
+            fi
+            // Thêm .tools vào PATH cho các bước sau
+            export PATH="${yqDir}:$PATH"
+          """
+        }
       }
     }
 
@@ -35,16 +50,14 @@ pipeline {
     stage('Determine Changes') {
       steps {
         script {
-          // so sánh với commit trước để biết có thay đổi ở frontend/ backend hay không
           env.FRONTEND_CHANGED = sh(
             script: "git diff --name-only HEAD~1 HEAD | grep '^frontend/' || true",
             returnStdout: true
           ).trim()
           env.BACKEND_CHANGED = sh(
-            script: "git diff --name-only HEAD~1 HEAD | grep '^backend/'  || true",
+            script: "git diff --name-only HEAD~1 HEAD | grep '^backend/' || true",
             returnStdout: true
           ).trim()
-          // TAG_NAME: Jenkins sẽ tự set khi build tag; nếu không có thì fallback
           if (!env.TAG_NAME) {
             env.TAG_NAME = sh(
               script: "git rev-parse --abbrev-ref HEAD",
@@ -103,36 +116,32 @@ pipeline {
           usernameVariable: 'GIT_USER',
           passwordVariable: 'GIT_TOKEN'
         )]) {
-          sh '''
+          sh """
             git clone ${CONFIG_REPO} config-repo
             cd config-repo
             git checkout ${CONFIG_BRANCH}
 
-            # Cập nhật giá trị tag nếu có thay đổi
+            // Dùng yq từ .tools để update giá trị tag
             if [ -n "${FRONTEND_CHANGED}" ]; then
-              yq eval '.frontend.image.tag = strenv(TAG_NAME)' -i values.yaml
+              ${env.WORKSPACE}/.tools/yq eval '.frontend.image.tag = strenv(TAG_NAME)' -i values.yaml
             fi
             if [ -n "${BACKEND_CHANGED}" ]; then
-              yq eval '.backend.image.tag = strenv(TAG_NAME)'  -i values.yaml
+              ${env.WORKSPACE}/.tools/yq eval '.backend.image.tag = strenv(TAG_NAME)'  -i values.yaml
             fi
 
             git config user.email "jenkins@ci.local"
-            git config user.name  "jenkins"
+            git config user.name "jenkins"
             git add values.yaml
             git commit -m "chore: bump image tags to ${TAG_NAME}"
             git push https://${GIT_USER}:${GIT_TOKEN}@github.com/duongnv3010/myapp-config.git ${CONFIG_BRANCH}
-          '''
+          """
         }
       }
     }
   }
 
   post {
-    success {
-      echo "Pipeline cho tag ${TAG_NAME} chạy thành công."
-    }
-    failure {
-      echo "Pipeline thất bại."
-    }
+    success { echo "Pipeline cho tag ${TAG_NAME} chạy thành công." }
+    failure { echo "Pipeline thất bại." }
   }
 }
