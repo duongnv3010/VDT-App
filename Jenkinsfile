@@ -17,7 +17,7 @@ pipeline {
         script {
           def yqDir  = "${env.WORKSPACE}/.tools"
           def yqPath = "${yqDir}/yq"
-          sh '''
+          sh """
             mkdir -p ${yqDir}
             if [ ! -f "${yqPath}" ]; then
               echo "Downloading yq to ${yqPath}"
@@ -33,7 +33,7 @@ pipeline {
             else
               echo "yq already present at ${yqPath}"
             fi
-          '''
+          """
         }
       }
     }
@@ -113,26 +113,26 @@ pipeline {
           usernameVariable: 'GIT_USER',
           passwordVariable: 'GIT_TOKEN'
         )]) {
-          sh '''
+          sh """
             git clone ${CONFIG_REPO} config-repo
             cd config-repo
             git checkout ${CONFIG_BRANCH}
 
             # Update frontend tag if changed
             if [ -n "${FRONTEND_CHANGED}" ]; then
-              ${WORKSPACE}/.tools/yq eval '.frontend.image.tag = strenv(TAG_NAME)' -i values.yaml
+              ${env.WORKSPACE}/.tools/yq eval '.frontend.image.tag = strenv(TAG_NAME)' -i values.yaml
             fi
             # Update backend tag if changed
             if [ -n "${BACKEND_CHANGED}" ]; then
-              ${WORKSPACE}/.tools/yq eval '.backend.image.tag = strenv(TAG_NAME)' -i values.yaml
+              ${env.WORKSPACE}/.tools/yq eval '.backend.image.tag = strenv(TAG_NAME)' -i values.yaml
             fi
 
             git config user.email "jenkins@ci.local"
-            git config user.name "jenkins"
+            git config user.name  "jenkins"
             git add values.yaml
             git commit -m "chore: bump image tags to ${TAG_NAME}"
             git push https://${GIT_USER}:${GIT_TOKEN}@github.com/duongnv3010/myapp-config.git ${CONFIG_BRANCH}
-          '''
+          """
         }
       }
     }
