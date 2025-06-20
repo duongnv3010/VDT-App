@@ -7,8 +7,8 @@ pipeline {
     BACKEND_REPO          = "duong3010/be-image"
     CONFIG_REPO           = "https://github.com/duongnv3010/myapp-config.git"
     CONFIG_BRANCH         = "master"
-    GIT_CREDENTIALS_ID    = "github-creds"
-    DOCKER_CREDENTIALS_ID = "docker-hub-creds"
+    GIT_CREDENTIALS_ID    = "github-creds"        // secret text (PAT)
+    DOCKER_CREDENTIALS_ID = "docker-hub-creds"    // username/password
   }
 
   stages {
@@ -52,7 +52,7 @@ pipeline {
             returnStdout: true
           ).trim()
           env.BACKEND_CHANGED = sh(
-            script: "git diff --name-only HEAD~1 HEAD | grep '^backend/' || true",
+            script: "git diff --name-only HEAD~1 HEAD | grep '^backend/'  || true",
             returnStdout: true
           ).trim()
           if (!env.TAG_NAME) {
@@ -108,10 +108,10 @@ pipeline {
 
     stage('Update Helm values.yaml') {
       steps {
-        withCredentials([usernamePassword(
+        // GitHub PAT stored as Secret Text → bind to GIT_TOKEN
+        withCredentials([string(
           credentialsId: GIT_CREDENTIALS_ID,
-          usernameVariable: 'GIT_USER',
-          passwordVariable: 'GIT_TOKEN'
+          variable: 'GIT_TOKEN'
         )]) {
           sh """
             git clone ${CONFIG_REPO} config-repo
@@ -120,18 +120,19 @@ pipeline {
 
             # Update frontend tag if changed
             if [ -n "${FRONTEND_CHANGED}" ]; then
-              ${env.WORKSPACE}/.tools/yq eval '.frontend.image.tag = strenv(TAG_NAME)' -i values.yaml
+              ${WORKSPACE}/.tools/yq eval '.frontend.image.tag = strenv(TAG_NAME)' -i values.yaml
             fi
             # Update backend tag if changed
             if [ -n "${BACKEND_CHANGED}" ]; then
-              ${env.WORKSPACE}/.tools/yq eval '.backend.image.tag = strenv(TAG_NAME)' -i values.yaml
+              ${WORKSPACE}/.tools/yq eval '.backend.image.tag = strenv(TAG_NAME)' -i values.yaml
             fi
 
             git config user.email "jenkins@ci.local"
             git config user.name  "jenkins"
             git add values.yaml
             git commit -m "chore: bump image tags to ${TAG_NAME}"
-            git push https://${GIT_USER}:${GIT_TOKEN}@github.com/duongnv3010/myapp-config.git ${CONFIG_BRANCH}
+            # Use PAT for push; PAT in username position works for public/private repos
+            git push https://${GIT_TOKEN}@github.com/duongnv3010/myapp-config.git ${CONFIG_BRANCH}
           """
         }
       }
