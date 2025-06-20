@@ -108,39 +108,38 @@ pipeline {
 
     stage('Update Helm values.yaml') {
       steps {
-        withCredentials([string(
-          credentialsId: GIT_CREDENTIALS_ID,
-          variable: 'GIT_TOKEN'
-        )]) {
-          // Dùng single-quoted multiline để tránh leak Groovy interpolation của $GIT_TOKEN
-          sh '''
-            # Xóa thư mục cũ
-            rm -rf config-repo
+    withCredentials([string(
+      credentialsId: GIT_CREDENTIALS_ID,
+      variable: 'GIT_TOKEN'
+    )]) {
+      sh '''
+        # Xóa thư mục cũ (nếu có)
+        rm -rf config-repo
 
-            # Sinh URL có token
-            AUTH_REPO=${CONFIG_REPO/https:\/\//https:\/\/$GIT_TOKEN@}
+        # Chèn token vào trước "github.com/…"
+        AUTH_REPO=$(echo "$CONFIG_REPO" | sed -e "s#https://#https://$GIT_TOKEN@#")
 
-            # Clone đúng URL (CONFIG_REPO đã có .git rồi)
-            git clone "$AUTH_REPO" config-repo
-            cd config-repo
-            git checkout "$CONFIG_BRANCH"
+        # Clone và checkout branch cấu hình
+        git clone "$AUTH_REPO" config-repo
+        cd config-repo
+        git checkout "$CONFIG_BRANCH"
 
-            # Cập nhật tag nếu cần
-            if [ -n "$FRONTEND_CHANGED" ]; then
-                $WORKSPACE/.tools/yq eval '.frontend.image.tag = strenv(TAG_NAME)' -i values.yaml
-            fi
-            if [ -n "$BACKEND_CHANGED" ]; then
-                $WORKSPACE/.tools/yq eval '.backend.image.tag = strenv(TAG_NAME)' -i values.yaml
-            fi
-            
-            # Commit & push
-            git config user.email "nguyenduong20053010@gmail.com"
-            git config user.name  "duongnv3010"
-            git add values.yaml
-            git commit -m "chore: bump image tags to $TAG_NAME"
-            git push https://$GIT_TOKEN@github.com/${CONFIG_REPO#https://github.com/}.git $CONFIG_BRANCH
-                '''
-        }
+        # Cập nhật values.yaml nếu có thay đổi frontend/backend
+        if [ -n "$FRONTEND_CHANGED" ]; then
+          $WORKSPACE/.tools/yq eval '.frontend.image.tag = strenv(TAG_NAME)' -i values.yaml
+        fi
+        if [ -n "$BACKEND_CHANGED" ]; then
+          $WORKSPACE/.tools/yq eval '.backend.image.tag = strenv(TAG_NAME)' -i values.yaml
+        fi
+
+        # Commit & push lại
+        git config user.email "nguyenduong20053010@gmail.com"
+        git config user.name  "duongnv3010"
+        git add values.yaml
+        git commit -m "chore: bump image tags to $TAG_NAME"
+        git push "$AUTH_REPO" "$CONFIG_BRANCH"
+      '''
+    }
       }
     }
   }
