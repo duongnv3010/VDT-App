@@ -76,10 +76,10 @@ pipeline {
             passwordVariable: 'DOCKER_PASS'
           )]) {
             sh '''
-              docker login -u $DOCKER_USER -p $DOCKER_PASS ${DOCKER_REGISTRY}
-              docker build -t ${FRONTEND_REPO}:${TAG_NAME} .
-              docker push ${FRONTEND_REPO}:${TAG_NAME}
-              docker logout ${DOCKER_REGISTRY}
+              docker login -u $DOCKER_USER -p $DOCKER_PASS $DOCKER_REGISTRY
+              docker build -t $FRONTEND_REPO:$TAG_NAME .
+              docker push $FRONTEND_REPO:$TAG_NAME
+              docker logout $DOCKER_REGISTRY
             '''
           }
         }
@@ -96,10 +96,10 @@ pipeline {
             passwordVariable: 'DOCKER_PASS'
           )]) {
             sh '''
-              docker login -u $DOCKER_USER -p $DOCKER_PASS ${DOCKER_REGISTRY}
-              docker build -t ${BACKEND_REPO}:${TAG_NAME} .
-              docker push ${BACKEND_REPO}:${TAG_NAME}
-              docker logout ${DOCKER_REGISTRY}
+              docker login -u $DOCKER_USER -p $DOCKER_PASS $DOCKER_REGISTRY
+              docker build -t $BACKEND_REPO:$TAG_NAME .
+              docker push $BACKEND_REPO:$TAG_NAME
+              docker logout $DOCKER_REGISTRY
             '''
           }
         }
@@ -108,39 +108,42 @@ pipeline {
 
     stage('Update Helm values.yaml') {
       steps {
-        // GitHub PAT stored as Secret Text → bind to GIT_TOKEN
         withCredentials([string(
           credentialsId: GIT_CREDENTIALS_ID,
           variable: 'GIT_TOKEN'
         )]) {
-          sh """
-            git clone ${CONFIG_REPO} config-repo
+          // Dùng single-quoted multiline để tránh leak Groovy interpolation của $GIT_TOKEN
+          sh '''
+            # Xóa thư mục cũ (nếu có) để không bị lỗi khi clone
+            rm -rf config-repo
+
+            # Clone và checkout branch
+            git clone https://$GIT_TOKEN@github.com/${CONFIG_REPO#https://github.com/}.git config-repo
             cd config-repo
-            git checkout ${CONFIG_BRANCH}
+            git checkout $CONFIG_BRANCH
 
-            # Update frontend tag if changed
-            if [ -n "${FRONTEND_CHANGED}" ]; then
-              ${WORKSPACE}/.tools/yq eval '.frontend.image.tag = strenv(TAG_NAME)' -i values.yaml
+            # Cập nhật tag nếu cần
+            if [ -n "$FRONTEND_CHANGED" ]; then
+              $WORKSPACE/.tools/yq eval '.frontend.image.tag = strenv(TAG_NAME)' -i values.yaml
             fi
-            # Update backend tag if changed
-            if [ -n "${BACKEND_CHANGED}" ]; then
-              ${WORKSPACE}/.tools/yq eval '.backend.image.tag = strenv(TAG_NAME)' -i values.yaml
+            if [ -n "$BACKEND_CHANGED" ]; then
+              $WORKSPACE/.tools/yq eval '.backend.image.tag = strenv(TAG_NAME)' -i values.yaml
             fi
 
+            # Commit & push
             git config user.email "nguyenduong20053010@gmail.com"
             git config user.name  "duongnv3010"
             git add values.yaml
-            git commit -m "chore: bump image tags to ${TAG_NAME}"
-            # Use PAT for push; PAT in username position works for public/private repos
-            git push https://${GIT_TOKEN}@github.com/duongnv3010/myapp-config.git ${CONFIG_BRANCH}
-          """
+            git commit -m "chore: bump image tags to $TAG_NAME"
+            git push https://$GIT_TOKEN@github.com/${CONFIG_REPO#https://github.com/}.git $CONFIG_BRANCH
+          '''
         }
       }
     }
   }
 
   post {
-    success { echo "Pipeline cho tag ${TAG_NAME} chạy thành công." }
+    success { echo "Pipeline cho tag $TAG_NAME chạy thành công." }
     failure { echo "Pipeline thất bại." }
   }
 }
