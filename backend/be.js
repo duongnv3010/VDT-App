@@ -1,14 +1,23 @@
 const express = require("express");
+const path = require("path");
 const mysql = require("mysql2/promise");
 const dotenv = require("dotenv");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const bodyParser = require("body-parser");
 const cors = require("cors");
+
 dotenv.config();
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
+
+// Serve frontend static files
+app.use(express.static(path.join(__dirname, "../frontend")));
+// Default route
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "../frontend/index.html"));
+});
 
 // Database pool
 const pool = mysql.createPool({

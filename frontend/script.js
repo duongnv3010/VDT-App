@@ -1,4 +1,5 @@
-const apiBase = "http://127.0.0.1:3000";
+// MÀN: đổi apiBase thành backend NodePort 30086
+const apiBase = `http://192.168.93.137:30086`;
 let token = localStorage.getItem("token") || "";
 
 // Elements
@@ -36,7 +37,7 @@ loginForm.addEventListener("submit", async (e) => {
   const username = document.getElementById("username").value;
   const password = document.getElementById("password").value;
   try {
-    const res = await fetch(apiBase + "/login", {
+    const res = await fetch(`${apiBase}/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
@@ -53,11 +54,12 @@ loginForm.addEventListener("submit", async (e) => {
     loginMessage.textContent = "Server error";
   }
 });
+
 signupBtn.addEventListener("click", async () => {
   const username = document.getElementById("username").value;
   const password = document.getElementById("password").value;
   try {
-    const res = await fetch(apiBase + "/signup", {
+    const res = await fetch(`${apiBase}/signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
@@ -68,6 +70,7 @@ signupBtn.addEventListener("click", async () => {
     loginMessage.textContent = "Server error";
   }
 });
+
 logoutBtn.addEventListener("click", () => {
   token = "";
   localStorage.removeItem("token");
@@ -77,7 +80,7 @@ logoutBtn.addEventListener("click", () => {
 // CRUD Functionality
 async function fetchStudents() {
   try {
-    const res = await fetch(apiBase + "/students", {
+    const res = await fetch(`${apiBase}/students`, {
       headers: { Authorization: "Bearer " + token },
     });
     const list = await res.json();
@@ -114,7 +117,7 @@ studentForm.addEventListener("submit", async (e) => {
     dob: document.getElementById("dob").value,
     school: document.getElementById("school").value,
   };
-  const url = apiBase + "/students" + (id ? `/${id}` : "");
+  const url = `${apiBase}/students${id ? `/${id}` : ""}`;
   const method = id ? "PUT" : "POST";
   try {
     const res = await fetch(url, {
@@ -158,7 +161,7 @@ function resetForm() {
 async function deleteStudent(id) {
   if (!confirm("Are you sure?")) return;
   try {
-    await fetch(apiBase + `/students/${id}`, {
+    await fetch(`${apiBase}/students/${id}`, {
       method: "DELETE",
       headers: { Authorization: "Bearer " + token },
     });

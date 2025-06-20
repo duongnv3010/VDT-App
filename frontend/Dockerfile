@@ -1,13 +1,16 @@
-# Use official Nginx image
+# frontend/Dockerfile
+
+# 1) Lấy image Nginx Alpine để serve static
 FROM nginx:alpine
 
-# Remove default static assets
+# 2) Xóa config default (tùy chọn)
 RUN rm -rf /usr/share/nginx/html/*
 
-# Copy custom static assets
+# 3) Copy toàn bộ file frontend vào thư mục của Nginx
 COPY . /usr/share/nginx/html
 
-# Expose HTTP port
+# 4) Expose cổng 80
 EXPOSE 80
 
-# Use default Nginx entrypoint/cmd
+# 5) Chạy Nginx ở foreground
+CMD ["nginx", "-g", "daemon off;"]
