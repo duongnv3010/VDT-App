@@ -114,29 +114,32 @@ pipeline {
         )]) {
           // Dùng single-quoted multiline để tránh leak Groovy interpolation của $GIT_TOKEN
           sh '''
-            # Xóa thư mục cũ (nếu có) để không bị lỗi khi clone
+            # Xóa thư mục cũ
             rm -rf config-repo
 
-            # Clone và checkout branch
-            git clone https://$GIT_TOKEN@github.com/${CONFIG_REPO#https://github.com/}.git config-repo
+            # Sinh URL có token
+            AUTH_REPO=${CONFIG_REPO/https:\/\//https:\/\/$GIT_TOKEN@}
+
+            # Clone đúng URL (CONFIG_REPO đã có .git rồi)
+            git clone "$AUTH_REPO" config-repo
             cd config-repo
-            git checkout $CONFIG_BRANCH
+            git checkout "$CONFIG_BRANCH"
 
             # Cập nhật tag nếu cần
             if [ -n "$FRONTEND_CHANGED" ]; then
-              $WORKSPACE/.tools/yq eval '.frontend.image.tag = strenv(TAG_NAME)' -i values.yaml
+                $WORKSPACE/.tools/yq eval '.frontend.image.tag = strenv(TAG_NAME)' -i values.yaml
             fi
             if [ -n "$BACKEND_CHANGED" ]; then
-              $WORKSPACE/.tools/yq eval '.backend.image.tag = strenv(TAG_NAME)' -i values.yaml
+                $WORKSPACE/.tools/yq eval '.backend.image.tag = strenv(TAG_NAME)' -i values.yaml
             fi
-
+            
             # Commit & push
             git config user.email "nguyenduong20053010@gmail.com"
             git config user.name  "duongnv3010"
             git add values.yaml
             git commit -m "chore: bump image tags to $TAG_NAME"
             git push https://$GIT_TOKEN@github.com/${CONFIG_REPO#https://github.com/}.git $CONFIG_BRANCH
-          '''
+                '''
         }
       }
     }
