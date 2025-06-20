@@ -14,7 +14,7 @@ pipeline {
       steps {
         script {
           // Lấy thẳng tên tag từ BRANCH_NAME
-          TAG = env.BRANCH_NAME
+          def TAG = env.BRANCH_NAME
           if (!TAG) {
             error "Không xác định được TAG; BRANCH_NAME=${env.BRANCH_NAME}"
           }
