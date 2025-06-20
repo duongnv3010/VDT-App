@@ -6,7 +6,7 @@ pipeline {
     DOCKER_NS       = 'duong3010'
     CHART_REPO      = 'https://github.com/duongnv3010/myapp.git'
     CONFIG_REPO     = 'https://github.com/duongnv3010/myapp-config.git'
-    CONFIG_BRANCH   = 'main'
+    CONFIG_BRANCH   = 'master'
   }
   stages {
     stage('Init') {
