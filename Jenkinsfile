@@ -2,13 +2,13 @@ pipeline {
   agent any
 
   environment {
-    DOCKER_REGISTRY        = "docker.io"
-    FRONTEND_REPO          = "duong3010/fe-image"
-    BACKEND_REPO           = "duong3010/be-image"
-    CONFIG_REPO            = "https://github.com/duongnv3010/myapp-config.git"
-    CONFIG_BRANCH          = "master"
-    GIT_CREDENTIALS_ID     = "github-creds"
-    DOCKER_CREDENTIALS_ID  = "docker-hub-creds"
+    DOCKER_REGISTRY       = "docker.io"
+    FRONTEND_REPO         = "duong3010/fe-image"
+    BACKEND_REPO          = "duong3010/be-image"
+    CONFIG_REPO           = "https://github.com/duongnv3010/myapp-config.git"
+    CONFIG_BRANCH         = "master"
+    GIT_CREDENTIALS_ID    = "github-creds"        // secret text (PAT)
+    DOCKER_CREDENTIALS_ID = "docker-hub-creds"    // username/password
   }
 
   stages {
@@ -17,7 +17,7 @@ pipeline {
         script {
           def yqDir  = "${env.WORKSPACE}/.tools"
           def yqPath = "${yqDir}/yq"
-          sh '''
+          sh """
             mkdir -p ${yqDir}
             if [ ! -f "${yqPath}" ]; then
               echo "Downloading yq to ${yqPath}"
@@ -33,7 +33,7 @@ pipeline {
             else
               echo "yq already present at ${yqPath}"
             fi
-          '''
+          """
         }
       }
     }
@@ -47,28 +47,27 @@ pipeline {
     stage('Determine Changes') {
       steps {
         script {
-          env.TAG_NAME = env.BRANCH_NAME
-          echo "Release tag/branch = ${env.TAG_NAME}"
-
           env.FRONTEND_CHANGED = sh(
             script: "git diff --name-only HEAD~1 HEAD | grep '^frontend/' || true",
             returnStdout: true
           ).trim()
           env.BACKEND_CHANGED = sh(
-            script: "git diff --name-only HEAD~1 HEAD | grep '^backend/' || true",
+            script: "git diff --name-only HEAD~1 HEAD | grep '^backend/'  || true",
             returnStdout: true
           ).trim()
-
-          echo "Frontend changed files:\n${env.FRONTEND_CHANGED}"
-          echo "Backend changed files:\n${env.BACKEND_CHANGED}"
+          if (!env.TAG_NAME) {
+            env.TAG_NAME = sh(
+              script: "git rev-parse --abbrev-ref HEAD",
+              returnStdout: true
+            ).trim()
+          }
+          echo "Release tag = ${env.TAG_NAME}"
         }
       }
     }
 
     stage('Build and Push Frontend') {
-      when {
-        expression { env.FRONTEND_CHANGED }
-      }
+      when { expression { env.FRONTEND_CHANGED } }
       steps {
         dir('frontend') {
           withCredentials([usernamePassword(
@@ -88,9 +87,7 @@ pipeline {
     }
 
     stage('Build and Push Backend') {
-      when {
-        expression { env.BACKEND_CHANGED }
-      }
+      when { expression { env.BACKEND_CHANGED } }
       steps {
         dir('backend') {
           withCredentials([usernamePassword(
@@ -111,44 +108,39 @@ pipeline {
 
     stage('Update Helm values.yaml') {
       steps {
+        // GitHub PAT stored as Secret Text → bind to GIT_TOKEN
         withCredentials([string(
           credentialsId: GIT_CREDENTIALS_ID,
           variable: 'GIT_TOKEN'
         )]) {
-          sh '''
+          sh """
             git clone ${CONFIG_REPO} config-repo
             cd config-repo
             git checkout ${CONFIG_BRANCH}
 
+            # Update frontend tag if changed
             if [ -n "${FRONTEND_CHANGED}" ]; then
               ${WORKSPACE}/.tools/yq eval '.frontend.image.tag = strenv(TAG_NAME)' -i values.yaml
             fi
-
+            # Update backend tag if changed
             if [ -n "${BACKEND_CHANGED}" ]; then
               ${WORKSPACE}/.tools/yq eval '.backend.image.tag = strenv(TAG_NAME)' -i values.yaml
             fi
 
-            if git diff --quiet; then
-              echo "No changes to values.yaml, skipping commit"
-            else
-              git config user.email "nguyenduong20053010@gmail.com"
-              git config user.name  "duongnv3010"
-              git add values.yaml
-              git commit -m "chore: bump image tags to ${TAG_NAME}"
-              git push https://${GIT_TOKEN}@github.com/duongnv3010/myapp-config.git ${CONFIG_BRANCH}
-            fi
-          '''
+            git config user.email "nguyenduong20053010@gmail.com"
+            git config user.name  "duongnv3010"
+            git add values.yaml
+            git commit -m "chore: bump image tags to ${TAG_NAME}"
+            # Use PAT for push; PAT in username position works for public/private repos
+            git push https://${GIT_TOKEN}@github.com/duongnv3010/myapp-config.git ${CONFIG_BRANCH}
+          """
         }
       }
     }
   }
 
   post {
-    success {
-      echo "Pipeline cho tag/branch ${TAG_NAME} chạy thành công."
-    }
-    failure {
-      echo "Pipeline thất bại."
-    }
+    success { echo "Pipeline cho tag ${TAG_NAME} chạy thành công." }
+    failure { echo "Pipeline thất bại." }
   }
 }
