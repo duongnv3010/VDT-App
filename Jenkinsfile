@@ -15,16 +15,15 @@ pipeline {
     stage('Ensure yq') {
       steps {
         script {
-          // Thư mục lưu yq
           def yqDir  = "${env.WORKSPACE}/.tools"
           def yqPath = "${yqDir}/yq"
-          sh """
+          sh '''
             mkdir -p ${yqDir}
             if [ ! -f "${yqPath}" ]; then
               echo "Downloading yq to ${yqPath}"
-              if command -v curl > /dev/null 2>&1; then
+              if command -v curl >/dev/null 2>&1; then
                 curl -sL https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o ${yqPath}
-              elif command -v wget > /dev/null 2>&1; then
+              elif command -v wget >/dev/null 2>&1; then
                 wget -qO ${yqPath} https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
               else
                 echo "Error: curl or wget is required to install yq" >&2
@@ -32,11 +31,9 @@ pipeline {
               fi
               chmod +x ${yqPath}
             else
-              echo "yq already present"
+              echo "yq already present at ${yqPath}"
             fi
-            // Thêm .tools vào PATH cho các bước sau
-            export PATH="${yqDir}:$PATH"
-          """
+          '''
         }
       }
     }
@@ -116,17 +113,18 @@ pipeline {
           usernameVariable: 'GIT_USER',
           passwordVariable: 'GIT_TOKEN'
         )]) {
-          sh """
+          sh '''
             git clone ${CONFIG_REPO} config-repo
             cd config-repo
             git checkout ${CONFIG_BRANCH}
 
-            // Dùng yq từ .tools để update giá trị tag
+            # Update frontend tag if changed
             if [ -n "${FRONTEND_CHANGED}" ]; then
-              ${env.WORKSPACE}/.tools/yq eval '.frontend.image.tag = strenv(TAG_NAME)' -i values.yaml
+              ${WORKSPACE}/.tools/yq eval '.frontend.image.tag = strenv(TAG_NAME)' -i values.yaml
             fi
+            # Update backend tag if changed
             if [ -n "${BACKEND_CHANGED}" ]; then
-              ${env.WORKSPACE}/.tools/yq eval '.backend.image.tag = strenv(TAG_NAME)'  -i values.yaml
+              ${WORKSPACE}/.tools/yq eval '.backend.image.tag = strenv(TAG_NAME)' -i values.yaml
             fi
 
             git config user.email "jenkins@ci.local"
@@ -134,7 +132,7 @@ pipeline {
             git add values.yaml
             git commit -m "chore: bump image tags to ${TAG_NAME}"
             git push https://${GIT_USER}:${GIT_TOKEN}@github.com/duongnv3010/myapp-config.git ${CONFIG_BRANCH}
-          """
+          '''
         }
       }
     }
