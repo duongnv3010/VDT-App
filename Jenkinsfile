@@ -90,30 +90,33 @@ spec:
         }
 
         stage('Update values.yaml in Manifest Repo') {
-            steps {
-                script {
-                    def tagName = env.GIT_TAG_NAME ?: sh(returnStdout: true, script: "git describe --tags").trim()
-                    withCredentials([usernamePassword(credentialsId: MANIFEST_CRED_ID, usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+        steps {
+            script {
+                def tagName = env.GIT_TAG_NAME ?: sh(returnStdout: true, script: "git describe --tags").trim()
+                withCredentials([usernamePassword(credentialsId: MANIFEST_CRED_ID, usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+                    sh """
+                    git clone https://${GIT_USER}:${GIT_PASS}@github.com/duongnv3010/myapp.git manifest-repo
+                    """
+                    container('yq') {
                         sh """
-                        git clone https://${GIT_USER}:${GIT_PASS}@github.com/duongnv3010/myapp.git manifest-repo
                         cd manifest-repo
-
-                        # Update backend image tag
                         /usr/bin/yq e '.backend.image.tag = "${tagName}"' -i values.yaml
-
-                        # Update frontend image tag
                         /usr/bin/yq e '.frontend.image.tag = "${tagName}"' -i values.yaml
-
-                        git config user.email "nguyenduong20053010@gmail.com"
-                        git config user.name "duongnv3010"
-                        git add values.yaml
-                        git commit -m "ci: update backend/frontend image tag to ${tagName}"
-                        git push origin main
                         """
                     }
+                    sh """
+                    cd manifest-repo
+                    git config user.email "nguyenduong20053010@gmail.com"
+                    git config user.name "duongnv3010"
+                    git add values.yaml
+                    git commit -m "ci: update backend/frontend image tag to ${tagName}"
+                    git push origin main
+                    """
                 }
             }
         }
+    }
+
     }
 
     post {
