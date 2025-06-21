@@ -1,4 +1,6 @@
 const express = require("express");
+const app = express();
+
 const path = require("path");
 const mysql = require("mysql2/promise");
 const dotenv = require("dotenv");
@@ -48,7 +50,6 @@ const loginFailCounter = new client.Counter({
 });
 
 dotenv.config();
-const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
