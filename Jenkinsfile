@@ -110,7 +110,7 @@ spec:
                     git config user.name "duongnv3010"
                     git add values.yaml
                     git commit -m "ci: update backend/frontend image tag to ${tagName}"
-                    git push origin main
+                    git push origin master
                     """
                 }
             }
