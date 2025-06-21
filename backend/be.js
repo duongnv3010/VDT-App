@@ -19,7 +19,7 @@ const metricsMiddleware = promBundle({
   includeMethod: true,
   includePath: true,
   includeStatusCode: true,
-  promClient: { collectDefaultMetrics: true },
+  promClient: { collectDefaultMetrics: false },
 });
 app.use(metricsMiddleware);
 
