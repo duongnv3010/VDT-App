@@ -1,5 +1,5 @@
 // MÀN: đổi apiBase thành backend NodePort 30086
-const apiBase = `http://192.168.93.137:30086`;
+const apiBase = `http://192.168.93.137:30011`;
 let token = localStorage.getItem("token") || "";
 
 // Elements
