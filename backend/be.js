@@ -60,7 +60,7 @@ app.use(
       method: tokens.method(req, res),
       path: tokens.url(req, res),
       status: Number(tokens.status(req, res)),
-      // time:   Number(tokens['response-time'](req, res))
+      time: Number(tokens["response-time"](req, res)),
     });
   })
 );
