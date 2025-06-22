@@ -8,6 +8,7 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const bodyParser = require("body-parser");
 const cors = require("cors");
+const morgan = require("morgan");
 
 // --- PROMETHEUS METRICS ---
 const client = require("prom-client");
@@ -52,6 +53,17 @@ const loginFailCounter = new client.Counter({
 dotenv.config();
 app.use(cors());
 app.use(bodyParser.json());
+
+app.use(
+  morgan(function (tokens, req, res) {
+    return JSON.stringify({
+      method: tokens.method(req, res),
+      path: tokens.url(req, res),
+      status: Number(tokens.status(req, res)),
+      // time:   Number(tokens['response-time'](req, res))
+    });
+  })
+);
 
 // Serve frontend static files
 app.use(express.static(path.join(__dirname, "../frontend")));
