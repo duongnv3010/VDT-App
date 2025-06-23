@@ -1,5 +1,6 @@
-// MÀN: đổi apiBase thành backend NodePort 30086
-const apiBase = `http://192.168.93.137:30011`;
+// SỬA: dùng đường dẫn tương đối (relative path) thay vì IP cứng
+const apiBase = ""; // hoặc bạn có thể dùng window.location.origin
+
 let token = localStorage.getItem("token") || "";
 
 // Elements
@@ -48,9 +49,10 @@ loginForm.addEventListener("submit", async (e) => {
       localStorage.setItem("token", token);
       showApp();
     } else {
-      loginMessage.textContent = data.message;
+      loginMessage.textContent = data.message || "Login failed";
     }
   } catch (err) {
+    console.error(err);
     loginMessage.textContent = "Server error";
   }
 });
@@ -65,8 +67,9 @@ signupBtn.addEventListener("click", async () => {
       body: JSON.stringify({ username, password }),
     });
     const data = await res.json();
-    loginMessage.textContent = data.message;
+    loginMessage.textContent = data.message || "Signup done";
   } catch (err) {
+    console.error(err);
     loginMessage.textContent = "Server error";
   }
 });
@@ -83,6 +86,7 @@ async function fetchStudents() {
     const res = await fetch(`${apiBase}/students`, {
       headers: { Authorization: "Bearer " + token },
     });
+    if (!res.ok) throw new Error("Fetch failed");
     const list = await res.json();
     renderList(list);
   } catch (err) {
@@ -133,6 +137,7 @@ studentForm.addEventListener("submit", async (e) => {
     resetForm();
     fetchStudents();
   } catch (err) {
+    console.error(err);
     formMessage.textContent = "Server error";
   }
 });
@@ -142,7 +147,7 @@ function editStudent(id, name, dob, school) {
   document.getElementById("name").value = name;
   document.getElementById("dob").value = new Date(dob)
     .toISOString()
-    .split("T")[0]; // Format date for input
+    .split("T")[0];
   document.getElementById("school").value = school;
   formTitle.textContent = "Edit Student";
   cancelBtn.classList.remove("hidden");
@@ -161,11 +166,11 @@ function resetForm() {
 async function deleteStudent(id) {
   if (!confirm("Are you sure?")) return;
   try {
-    await fetch(`${apiBase}/students/${id}`, {
+    const res = await fetch(`${apiBase}/students/${id}`, {
       method: "DELETE",
       headers: { Authorization: "Bearer " + token },
     });
-    fetchStudents();
+    if (res.ok) fetchStudents();
   } catch (err) {
     console.error(err);
   }
