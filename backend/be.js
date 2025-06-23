@@ -90,11 +90,26 @@ async function authenticate(req, res, next) {
   if (!token) return res.status(401).json({ message: "Invalid token format" });
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = payload.username;
+    req.user = {
+      username: payload.username,
+      role: payload.role,
+    };
     next();
   } catch (err) {
     return res.status(403).json({ message: "Failed to authenticate token" });
   }
+}
+
+/**
+ * @param allowedRoles Array of roles permitted to access
+ */
+function authorize(allowedRoles = []) {
+  return (req, res, next) => {
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    next();
+  };
 }
 
 // Sign up endpoint
@@ -105,10 +120,10 @@ app.post("/signup", async (req, res) => {
   }
   try {
     const hashed = await bcrypt.hash(password, 10);
-    await pool.query("INSERT INTO user (username, password) VALUES (?, ?)", [
-      username,
-      hashed,
-    ]);
+    await pool.query(
+      "INSERT INTO user (username, password, role) VALUES (?, ?, 'user')",
+      [username, hashed]
+    );
     dbQueryCounter.inc({ operation: "insert", table: "user" });
     userRegisterCounter.inc(); // đếm số user đăng ký thành công
     res.status(201).json({ message: "User registered successfully" });
@@ -141,7 +156,7 @@ app.post("/login", async (req, res) => {
       return res.status(401).json({ message: "Invalid credentials" });
     }
     const token = jwt.sign(
-      { username: user.username },
+      { username: user.username, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
@@ -155,21 +170,26 @@ app.post("/login", async (req, res) => {
 // Student CRUD endpoints (protected)
 
 // List all students
-app.get("/students", authenticate, async (req, res) => {
-  try {
-    const [rows] = await pool.query(
-      "SELECT id, name, dob, school FROM student"
-    );
-    dbQueryCounter.inc({ operation: "select", table: "student" });
-    res.json(rows);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
+app.get(
+  "/students",
+  authenticate,
+  authorize(["user", "admin"]),
+  async (req, res) => {
+    try {
+      const [rows] = await pool.query(
+        "SELECT id, name, dob, school FROM student"
+      );
+      dbQueryCounter.inc({ operation: "select", table: "student" });
+      res.json(rows);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Server error" });
+    }
   }
-});
+);
 
 // Create a new student
-app.post("/students", authenticate, async (req, res) => {
+app.post("/students", authenticate, authorize(["admin"]), async (req, res) => {
   const { name, dob, school } = req.body;
   if (!name || !dob || !school) {
     return res
@@ -191,60 +211,72 @@ app.post("/students", authenticate, async (req, res) => {
 });
 
 // Update an existing student
-app.put("/students/:id", authenticate, async (req, res) => {
-  const { id } = req.params;
-  const { name, dob, school } = req.body;
-  if (!name && !dob && !school) {
-    return res
-      .status(400)
-      .json({ message: "At least one field (name, dob, school) is required" });
-  }
-  const fields = [];
-  const values = [];
-  if (name) {
-    fields.push("name = ?");
-    values.push(name);
-  }
-  if (dob) {
-    fields.push("dob = ?");
-    values.push(dob);
-  }
-  if (school) {
-    fields.push("school = ?");
-    values.push(school);
-  }
-  values.push(id);
-  try {
-    const [result] = await pool.query(
-      `UPDATE student SET ${fields.join(", ")} WHERE id = ?`,
-      values
-    );
-    dbQueryCounter.inc({ operation: "update", table: "student" });
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Student not found" });
+app.put(
+  "/students/:id",
+  authenticate,
+  authorize(["admin"]),
+  async (req, res) => {
+    const { id } = req.params;
+    const { name, dob, school } = req.body;
+    if (!name && !dob && !school) {
+      return res.status(400).json({
+        message: "At least one field (name, dob, school) is required",
+      });
     }
-    res.json({ id, name, dob, school });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
+    const fields = [];
+    const values = [];
+    if (name) {
+      fields.push("name = ?");
+      values.push(name);
+    }
+    if (dob) {
+      fields.push("dob = ?");
+      values.push(dob);
+    }
+    if (school) {
+      fields.push("school = ?");
+      values.push(school);
+    }
+    values.push(id);
+    try {
+      const [result] = await pool.query(
+        `UPDATE student SET ${fields.join(", ")} WHERE id = ?`,
+        values
+      );
+      dbQueryCounter.inc({ operation: "update", table: "student" });
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ message: "Student not found" });
+      }
+      res.json({ id, name, dob, school });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Server error" });
+    }
   }
-});
+);
 
 // Delete a student
-app.delete("/students/:id", authenticate, async (req, res) => {
-  const { id } = req.params;
-  try {
-    const [result] = await pool.query("DELETE FROM student WHERE id = ?", [id]);
-    dbQueryCounter.inc({ operation: "delete", table: "student" });
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Student not found" });
+app.delete(
+  "/students/:id",
+  authenticate,
+  authorize(["admin"]),
+  async (req, res) => {
+    const { id } = req.params;
+    try {
+      const [result] = await pool.query("DELETE FROM student WHERE id = ?", [
+        id,
+      ]);
+      dbQueryCounter.inc({ operation: "delete", table: "student" });
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ message: "Student not found" });
+      }
+      res.json({ message: "Student deleted successfully" });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ message: "Server error" });
     }
-    res.json({ message: "Student deleted successfully" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
   }
-});
+);
 
 app.get("/metrics", async (req, res) => {
   res.set("Content-Type", client.register.contentType);

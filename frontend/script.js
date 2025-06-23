@@ -88,29 +88,39 @@ async function fetchStudents() {
     });
     if (!res.ok) throw new Error("Fetch failed");
     const list = await res.json();
-    renderList(list);
+    // Decode JWT để lấy role
+    const payload = JSON.parse(atob(token.split(".")[1]));
+    const role = payload.role;
+    renderList(list, role);
   } catch (err) {
     console.error(err);
   }
 }
 
-function renderList(list) {
+function renderList(list, role) {
   if (!Array.isArray(list)) return;
   let html =
     "<table><tr><th>Name</th><th>DOB</th><th>School</th><th>Actions</th></tr>";
   list.forEach((s) => {
     html += `<tr>
-      <td>${s.name}</td>
-      <td>${s.dob}</td>
-      <td>${s.school}</td>
-      <td>
-        <button onclick="editStudent(${s.id}, '${s.name}', '${s.dob}', '${s.school}')">Edit</button>
-        <button onclick="deleteStudent(${s.id})">Delete</button>
-      </td>
-    </tr>`;
+        <td>${s.name}</td>
+        <td>${s.dob}</td>
+       <td>${s.school}</td>
+       <td>${
+         role === "admin"
+           ? `<button onclick="editStudent(${s.id}, '${s.name}', '${s.dob}', '${s.school}')">Edit</button>
+               <button onclick="deleteStudent(${s.id})">Delete</button>`
+           : "—"
+       }</td>
+      </tr>`;
   });
   html += "</table>";
   studentList.innerHTML = html;
+  if (role !== "admin") {
+    studentForm.classList.add("hidden");
+  } else {
+    studentForm.classList.remove("hidden");
+  }
 }
 
 studentForm.addEventListener("submit", async (e) => {
