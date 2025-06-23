@@ -6,6 +6,7 @@ const mysql = require("mysql2/promise");
 const dotenv = require("dotenv");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const rateLimit = require("express-rate-limit");
 const bodyParser = require("body-parser");
 const cors = require("cors");
 const morgan = require("morgan");
@@ -13,6 +14,20 @@ const morgan = require("morgan");
 // --- PROMETHEUS METRICS ---
 const client = require("prom-client");
 const promBundle = require("express-prom-bundle");
+
+// Giới hạn: tối đa 10 request / 1 phút, trả về 409 cho các request vượt ngưỡng
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10, // limit each IP to 10 requests per windowMs
+  statusCode: 409, // HTTP 409 khi vượt quá
+  message: {
+    message: "Too many requests – please try again in a minute.",
+  },
+  standardHeaders: true, // gửi RateLimit-* headers
+  legacyHeaders: false, // tắt X-RateLimit-* headers cũ
+});
+
+app.use(apiLimiter);
 
 // 2.1. Default resource metrics (memory, cpu, eventloop...)
 client.collectDefaultMetrics();
