@@ -1,5 +1,5 @@
 // SỬA: dùng đường dẫn tương đối (relative path) thay vì IP cứng
-const apiBase = ""; // hoặc bạn có thể dùng window.location.origin
+const apiBase = "http://192.168.93.145:30011"; // hoặc bạn có thể dùng window.location.origin
 
 let token = localStorage.getItem("token") || "";
 
